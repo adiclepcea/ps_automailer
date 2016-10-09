@@ -1,5 +1,5 @@
 # ps_automailer
-powershell script to send mails from an excel file using mailsender
+powershell script to send mails from an excel file using [https://github.com/adiclepcea/mailsender](mailsender)
 
 ##Usage
 
