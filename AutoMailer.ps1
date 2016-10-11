@@ -146,7 +146,7 @@ function SendMailIfYouHaveTo
 		if (CheckMustSendMail($date)){			
 			if ((MailAllreadySent -mail $mail -date $date) -eq 0){
 				Write-Output "$($d): Sending mail to $($name), $($date), $($mail)"
-				$mail = "adiclepcea@gmail.com"
+				
 				$req = @{To = @{Name="$($name)";Address="$($mail)"}; `
 						Subject="Contract with Hannes"; `
 						Body="In attention of $($contact). Your contract with us will expire on $($date). Please contact us for renewal.";`
