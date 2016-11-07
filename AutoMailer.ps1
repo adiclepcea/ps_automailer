@@ -1,7 +1,7 @@
 param(
 	[Parameter(Mandatory=$True)]
 	[ValidateScript({If (!(Test-Path $_)) {
-			Throw "$_ is not a valid file."			
+			Throw "$_ is not a valid file."
 		}elseif(!($_.endswith(".xlsx","CurrentCultureIgnoreCase"))){
 			Throw "$_ is not an excel file"
 		}else{
@@ -19,6 +19,8 @@ param(
 	[string]$mailLocation,
 	[Parameter(Mandatory=$True)]
 	[string]$nameLocation,
+	[Parameter(Mandatory=$True)]
+	[string]$activLocation,
 	[Parameter(Mandatory=$False)]
 	[string]$daysBefore=50
 )
@@ -28,7 +30,7 @@ $mailSenderAddress = "http://localhost:8080"
 $defaultName = "Your Name"
 $defaultMail = "name.surname@mailserver.ro"
 $defaultPass = "pass"
-function ValidMail 
+function ValidMail
 {
 	Param($mailAddress)
 	try{
@@ -37,7 +39,7 @@ function ValidMail
 	}catch{
 		return 0
 	}
-	
+
 }
 
 function ValidDate
@@ -52,10 +54,10 @@ function ValidDate
 	return 1
 }
 
-function GetDate 
+function GetDate
 {
 	Param($date)
-	
+
 	$rez = ""
 	if(!([DateTime]::TryParse($date,[ref]$rez))){
 		throw "$date is an invalid date"
@@ -66,40 +68,40 @@ function GetDate
 function WriteMailSent
 {
 	Param(
-		[String]$mail,		
+		[String]$mail,
 		[System.DateTime]$date
 	)
-	
+
 	$d = Get-Date
-	
+
 	$newLine = New-Object psobject
-	
+
 	Add-Member -InputObject $newLine -MemberType NoteProperty -Name mail -Value $mail
 	Add-Member -InputObject $newLine -MemberType NoteProperty -Name date -Value $date.ToString()
 	Add-Member -InputObject $newLine -MemberType NoteProperty -Name dateSent -Value $d.ToString()
-	
+
 	$newCsv = @()
 	$newCsv += $newLine
-	
+
 	if (Test-Path -Path $historyFile){
 		$csv = Import-Csv $historyFile
-		
+
 		$csv | ForEach-Object{
 			$newCsv += $_
-		}	
+		}
 	}
-	
+
 	$newCsv | Export-Csv  -Path $historyFile -NoTypeInformation
 }
 
 function MailAllreadySent
 {
-	
+
 	Param(
-		[String]$mail,		
+		[String]$mail,
 		[System.DateTime]$date
 	)
-	
+
 	if (Test-Path -Path $historyFile){
 		$csv = Import-Csv $historyFile
 		$csv | ForEach-Object {
@@ -108,20 +110,20 @@ function MailAllreadySent
 			}
 		}
 	}
-	
+
 	return 0
 }
 
-function CheckMustSendMail 
+function CheckMustSendMail
 {
 	Param($when)
-	
+
 	$startDate = Get-Date
 	$ts = New-Timespan -Start $startDate -End $when
-	if ($ts.Days -gt 0 -and ($ts.Days -lt $daysBefore -or $ts.Days -eq $daysBefore)){		
+	if ($ts.Days -gt 0 -and ($ts.Days -lt $daysBefore -or $ts.Days -eq $daysBefore)){
 		return 1
 	}
-	
+
 	return 0
 }
 
@@ -143,16 +145,17 @@ function SendMailIfYouHaveTo
 		$mail = $vm.Address
 		$contact = $vm.DisplayName
 		#Check if mail is due to be sent
-		if (CheckMustSendMail($date)){			
+		if (CheckMustSendMail($date)){
 			if ((MailAllreadySent -mail $mail -date $date) -eq 0){
 				Write-Output "$($d): Sending mail to $($name), $($date), $($mail)"
-				
+
 				$req = @{To = @{Name="$($name)";Address="$($mail)"}; `
-						Subject="Contract with Hannes"; `
+						Subject="Contract with Hanes"; `
 						Body="In attention of $($contact). Your contract with us will expire on $($date). Please contact us for renewal.";`
 						From=@{Name="$($defaultName)";Address="$($defaultMail)"};Password="$($defaultPass)"}
 				$json = $req | ConvertTo-Json
 				$rez = Invoke-WebRequest -uri "$($mailSenderAddress)/sendmail" -Method Post -Body $json
+
 				if ($rez.StatusCode -ne 200){
 					if($rez.Content -ne $null){
 						Write-Warning "$($d): Sending mail to $($mail) failed because: $($rez.Content)"
@@ -164,7 +167,7 @@ function SendMailIfYouHaveTo
 				}
 			}
 		}
-		
+
 	}
 }
 
@@ -180,20 +183,21 @@ while($excel[$i] -ne $null `
 	-and $excel[$i].$dateLocation -ne "" `
 	-and $excel[$i].$nameLocation -ne $null `
 	-and $excel[$i].$nameLocation.Trim() -ne ""){
-	
+
 	$name = $excel[$i].$nameLocation
 	$date = $excel[$i].$dateLocation
 	$mail = $excel[$i].$mailLocation
 	if ($mail2Location -ne ""){
 		$mail2 = $excel[$i].$mail2Location
 	}
-	
+
 	$date=[System.DateTime]::FromOADate($date)
-		
-	SendMailIfYouHaveTo -mail $mail -name $name -date $date
-	if ($mail2Location -ne ""){
-		SendMailIfYouHaveTo -mail $mail2 -name $name -date $date
+	if ($excel[$i].$activLocation -eq "Active") {
+		SendMailIfYouHaveTo -mail $mail -name $name -date $date
+		if ($mail2Location -ne ""){
+			SendMailIfYouHaveTo -mail $mail2 -name $name -date $date
+		}
 	}
-	
+
 	$i = $i+1
 }
